@@ -142,6 +142,13 @@ async function notify(connection, userId, title, message) {
   await connection.execute('INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)', [userId, title, message]);
 }
 
+async function audit(connection, actorUserId, action, entityType, entityId, details = {}) {
+  await connection.execute(
+    'INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)',
+    [actorUserId, action, entityType, entityId || null, JSON.stringify(details)]
+  );
+}
+
 function inclusiveDays(startDate, endDate) {
   const start = new Date(`${startDate}T00:00:00.000Z`);
   const end = new Date(`${endDate}T00:00:00.000Z`);
@@ -447,6 +454,7 @@ app.post('/api/admin/students', authenticate, authorize('admin'), async (request
             values.facultyId || null, values.attendancePercentage, values.totalLeaveQuota]
         );
         await notify(connection, userId, 'Account created', 'Your university leave management account was created. Change your temporary password after signing in.');
+        await audit(connection, request.user.id, 'student.created', 'student', result.insertId, { email: values.email.toLowerCase() });
         return result.insertId;
       } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') throw Object.assign(new Error('Student ID, enrollment number, or email already exists.'), { status: 409 });
@@ -481,6 +489,7 @@ app.put('/api/admin/students/:id', authenticate, authorize('admin'), async (requ
       try {
         await connection.execute(`UPDATE students SET ${entries.map(([key]) => `${columnMap[key]} = ?`).join(', ')} WHERE id = ?`, [...values, id]);
         if (updates.email) await connection.execute('UPDATE users SET email = ? WHERE id = ?', [updates.email.toLowerCase(), existing.user_id]);
+        await audit(connection, request.user.id, 'student.updated', 'student', id, { fields: entries.map(([key]) => key) });
       } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') throw Object.assign(new Error('Student ID, enrollment number, or email already exists.'), { status: 409 });
         throw error;
@@ -493,8 +502,11 @@ app.put('/api/admin/students/:id', authenticate, authorize('admin'), async (requ
 app.patch('/api/admin/students/:id/status', authenticate, authorize('admin'), async (request, response, next) => {
   try {
     const { status } = getValidation(z.object({ status: z.enum(['active', 'inactive', 'blocked']) }), request.body);
-    const [result] = await pool.execute('UPDATE students s JOIN users u ON u.id = s.user_id SET s.account_status = ?, u.status = ? WHERE s.id = ?', [status, status, request.params.id]);
-    if (!result.affectedRows) return response.status(404).json({ message: 'Student not found.' });
+    await withTransaction(async (connection) => {
+      const [result] = await connection.execute('UPDATE students s JOIN users u ON u.id = s.user_id SET s.account_status = ?, u.status = ? WHERE s.id = ?', [status, status, request.params.id]);
+      if (!result.affectedRows) throw Object.assign(new Error('Student not found.'), { status: 404 });
+      await audit(connection, request.user.id, 'student.status_changed', 'student', request.params.id, { status });
+    });
     response.json({ message: `Student account is now ${status}.` });
   } catch (error) { next(error); }
 });
@@ -502,10 +514,13 @@ app.patch('/api/admin/students/:id/status', authenticate, authorize('admin'), as
 app.post('/api/admin/students/:id/reset-password', authenticate, authorize('admin'), async (request, response, next) => {
   try {
     const { temporaryPassword } = getValidation(z.object({ temporaryPassword: z.string().min(12).max(200) }), request.body);
-    const [result] = await pool.execute(
-      'UPDATE users u JOIN students s ON s.user_id = u.id SET u.password_hash = ?, u.must_change_password = TRUE WHERE s.id = ?', [await bcrypt.hash(temporaryPassword, 12), request.params.id]
-    );
-    if (!result.affectedRows) return response.status(404).json({ message: 'Student not found.' });
+    await withTransaction(async (connection) => {
+      const [result] = await connection.execute(
+        'UPDATE users u JOIN students s ON s.user_id = u.id SET u.password_hash = ?, u.must_change_password = TRUE WHERE s.id = ?', [await bcrypt.hash(temporaryPassword, 12), request.params.id]
+      );
+      if (!result.affectedRows) throw Object.assign(new Error('Student not found.'), { status: 404 });
+      await audit(connection, request.user.id, 'student.password_reset', 'student', request.params.id, { forcedChange: true });
+    });
     response.json({ message: 'Student password reset successfully.' });
   } catch (error) { next(error); }
 });

@@ -176,6 +176,19 @@ CREATE TABLE IF NOT EXISTS notifications (
   INDEX idx_notifications_user_read (user_id, read_status, created_at)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  actor_user_id BIGINT UNSIGNED NOT NULL,
+  action VARCHAR(64) NOT NULL,
+  entity_type VARCHAR(64) NOT NULL,
+  entity_id BIGINT UNSIGNED,
+  details JSON,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_audit_actor FOREIGN KEY (actor_user_id) REFERENCES users(id),
+  INDEX idx_audit_actor_created (actor_user_id, created_at),
+  INDEX idx_audit_entity (entity_type, entity_id, created_at)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS analytics_predictions (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   student_id BIGINT UNSIGNED,
