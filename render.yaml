@@ -2,6 +2,7 @@ services:
   - type: web
     name: university-leave-management-api
     runtime: node
+    plan: free
     rootDir: backend
     buildCommand: corepack enable && pnpm install --frozen-lockfile
     startCommand: pnpm start
