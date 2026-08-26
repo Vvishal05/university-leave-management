@@ -138,6 +138,24 @@ cd frontend && npm install && npm run dev
 
 Set `VITE_API_BASE_URL` to the backend's full public API URL only for this split development setup. For Compose/production, `/api` is recommended.
 
+### Connect this VS Code workspace to TiDB Cloud
+
+1. In TiDB Cloud, open the cluster's **Connect** dialog, reset the database password if necessary, download the CA certificate, and allow the current development IP in the cluster network access list.
+2. Copy `.env.example` to `.env` in the workspace root. Keep `.env` uncommitted.
+3. Replace the database section with the TiDB values. For the current `Cluster2` connection, the non-secret values are:
+
+   ```dotenv
+   DB_HOST=gateway01.ap-southeast-1.prod.aws.tidbcloud.com
+   DB_PORT=4000
+   DB_NAME=smartmart
+   DB_USER=UDatoMLunGYen8f.root
+   DB_PASSWORD=YOUR_TIDB_PASSWORD
+   DB_SSL=true
+   DB_CA_CERT_PATH=C:/path/to/ca.pem
+   ```
+
+   `DB_CA_CERT_PATH` may be an absolute Windows path. Public TiDB Cloud endpoints require TLS. For a first connection check, run `npm install` in `backend`, then `npm run seed`; a successful seed confirms the application can authenticate and write to TiDB. Run the API with `npm run dev` afterward. Never put the password or CA certificate in Git, React, or Vercel.
+
 ## Security notes
 
 - Do not expose the MySQL port publicly. Only the frontend's reverse-proxied web port needs to be reachable.

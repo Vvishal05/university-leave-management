@@ -57,13 +57,13 @@ async function getOrCreateAcademicData(connection) {
 async function run() {
   await withTransaction(async (connection) => {
     const adminUserId = await ensureUser(connection, {
-      email: process.env.SEED_ADMIN_EMAIL, password: process.env.SEED_ADMIN_PASSWORD, role: 'admin'
+      email: process.env.SEED_ADMIN_EMAIL, password: process.env.admin123, role: 'admin'
     });
     await connection.execute('INSERT IGNORE INTO admins (user_id, name, email) VALUES (?, ?, ?)', [adminUserId, process.env.SEED_ADMIN_NAME, process.env.SEED_ADMIN_EMAIL]);
 
     const academicData = await getOrCreateAcademicData(connection);
     const facultyUserId = await ensureUser(connection, {
-      email: process.env.SEED_FACULTY_EMAIL, password: process.env.SEED_FACULTY_PASSWORD, role: 'faculty'
+      email: process.env.SEED_FACULTY_EMAIL, password: process.env.faculty123, role: 'faculty'
     });
     await connection.execute(
       'INSERT IGNORE INTO faculty (user_id, faculty_id, name, email, department_id, designation) VALUES (?, ?, ?, ?, ?, ?)',
@@ -78,7 +78,7 @@ async function run() {
       const studentCode = `STU${String(1000 + index)}`;
       const email = index === 1 ? process.env.SEED_STUDENT_EMAIL : `student${1000 + index}@${process.env.SEED_EMAIL_DOMAIN}`;
       const userId = await ensureUser(connection, {
-        email, password: process.env.SEED_STUDENT_PASSWORD, role: 'student', mustChangePassword: false
+        email, password: process.env.student123, role: 'student', mustChangePassword: false
       });
       await connection.execute(
         `INSERT IGNORE INTO students
