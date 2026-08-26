@@ -1,0 +1,5 @@
+-- Reference data is created by schema.sql. Application accounts and 110 varied
+-- student records are seeded by `npm run seed` so no password is stored in SQL.
+-- The seed script reads SEED_ADMIN_PASSWORD, SEED_FACULTY_PASSWORD, and
+-- SEED_STUDENT_PASSWORD from the environment, hashes them with bcrypt, and
+-- is safe to re-run.
