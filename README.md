@@ -8,7 +8,7 @@ A database-backed leave workflow for students, faculty, and university administr
 - Faculty-only review of assigned students' requests, with transactionally stored decisions and notifications.
 - Admin dashboard statistics calculated from MySQL and student management with database search, status changes, and account creation.
 - Controlled student and administrator assistant endpoints. They only receive data already authorized by the API and cannot execute arbitrary SQL or approve leave.
-- 110 varied student records from the idempotent `npm run seed` command, along with an admin and faculty account. The seed passwords and demo identities are configured only in `.env`.
+- 100 varied student records across nine schools and programs, 15 faculty accounts, and one admin account from the idempotent `npm run seed` command. The seed passwords and identities are configured only in `.env`.
 - Docker deployment and persistent MySQL/uploads volumes.
 
 ## Architecture

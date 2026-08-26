@@ -19,6 +19,7 @@ const schools = [
 ];
 const firstNames = ['Aarav', 'Aditi', 'Akash', 'Ananya', 'Arjun', 'Bhavna', 'Dev', 'Diya', 'Ishaan', 'Kavya', 'Maya', 'Neel', 'Nisha', 'Priya', 'Rahul', 'Riya', 'Rohan', 'Saanvi', 'Tanvi', 'Vihaan'];
 const lastNames = ['Agarwal', 'Bose', 'Chopra', 'Das', 'Gupta', 'Iyer', 'Jain', 'Kapoor', 'Khan', 'Mehta', 'Nair', 'Patel', 'Reddy', 'Shah', 'Singh'];
+const facultyNames = ['Aarav Sharma', 'Ananya Verma', 'Bhavna Iyer', 'Dev Mehta', 'Diya Kapoor', 'Ishaan Nair', 'Kavya Reddy', 'Maya Shah', 'Neel Gupta', 'Nisha Patel', 'Priya Bose', 'Rahul Jain', 'Riya Agarwal', 'Rohan Das', 'Saanvi Khan'];
 
 async function ensureUser(connection, { email, password, role, mustChangePassword = false }) {
   const [existing] = await connection.execute('SELECT id FROM users WHERE email = ?', [email]);
@@ -57,28 +58,36 @@ async function getOrCreateAcademicData(connection) {
 async function run() {
   await withTransaction(async (connection) => {
     const adminUserId = await ensureUser(connection, {
-      email: process.env.SEED_ADMIN_EMAIL, password: process.env.admin123, role: 'admin'
+      email: process.env.SEED_ADMIN_EMAIL, password: process.env.SEED_ADMIN_PASSWORD, role: 'admin'
     });
     await connection.execute('INSERT IGNORE INTO admins (user_id, name, email) VALUES (?, ?, ?)', [adminUserId, process.env.SEED_ADMIN_NAME, process.env.SEED_ADMIN_EMAIL]);
 
     const academicData = await getOrCreateAcademicData(connection);
-    const facultyUserId = await ensureUser(connection, {
-      email: process.env.SEED_FACULTY_EMAIL, password: process.env.faculty123, role: 'faculty'
-    });
-    await connection.execute(
-      'INSERT IGNORE INTO faculty (user_id, faculty_id, name, email, department_id, designation) VALUES (?, ?, ?, ?, ?, ?)',
-      [facultyUserId, process.env.SEED_FACULTY_ID, process.env.SEED_FACULTY_NAME, process.env.SEED_FACULTY_EMAIL, academicData[0].department.id, 'Assistant Professor']
-    );
-    const [[faculty]] = await connection.execute('SELECT id FROM faculty WHERE user_id = ?', [facultyUserId]);
+    const facultyRecords = [];
+    for (let index = 0; index < 15; index += 1) {
+      const facultyNumber = 1001 + index;
+      const facultyEmail = index === 0 ? process.env.SEED_FACULTY_EMAIL : `faculty${facultyNumber}@${process.env.SEED_EMAIL_DOMAIN}`;
+      const facultyId = index === 0 ? process.env.SEED_FACULTY_ID : `FAC${facultyNumber}`;
+      const facultyName = index === 0 ? process.env.SEED_FACULTY_NAME : facultyNames[index];
+      const facultyUserId = await ensureUser(connection, {
+        email: facultyEmail, password: process.env.SEED_FACULTY_PASSWORD, role: 'faculty'
+      });
+      await connection.execute(
+        'INSERT IGNORE INTO faculty (user_id, faculty_id, name, email, department_id, designation) VALUES (?, ?, ?, ?, ?, ?)',
+        [facultyUserId, facultyId, facultyName, facultyEmail, academicData[index % academicData.length].department.id, 'Assistant Professor']
+      );
+      const [[faculty]] = await connection.execute('SELECT id FROM faculty WHERE user_id = ?', [facultyUserId]);
+      facultyRecords.push(faculty);
+    }
 
-    for (let index = 1; index <= 110; index += 1) {
+    for (let index = 1; index <= 100; index += 1) {
       const academic = academicData[(index - 1) % academicData.length];
       const firstName = firstNames[(index - 1) % firstNames.length];
       const lastName = lastNames[(index * 3) % lastNames.length];
       const studentCode = `STU${String(1000 + index)}`;
       const email = index === 1 ? process.env.SEED_STUDENT_EMAIL : `student${1000 + index}@${process.env.SEED_EMAIL_DOMAIN}`;
       const userId = await ensureUser(connection, {
-        email, password: process.env.student123, role: 'student', mustChangePassword: false
+        email, password: process.env.SEED_STUDENT_PASSWORD, role: 'student', mustChangePassword: true
       });
       await connection.execute(
         `INSERT IGNORE INTO students
@@ -86,12 +95,12 @@ async function run() {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [userId, studentCode, `ENR${new Date().getFullYear()}${String(index).padStart(4, '0')}`, firstName, lastName, email,
           academic.school.id, academic.department.id, academic.program.id, (index % 8) + 1, String.fromCharCode(65 + (index % 3)),
-          `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`, new Date().getFullYear() - ((index % 4) + 1), faculty.id,
+          `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`, new Date().getFullYear() - ((index % 4) + 1), facultyRecords[(index - 1) % facultyRecords.length].id,
           68 + (index % 30), 20, index % 6]
       );
     }
   });
-  console.log('Seed complete: 1 admin, 1 faculty, and 110 students.');
+  console.log('Seed complete: 1 admin, 15 faculty, and 100 students.');
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; }).finally(() => pool.end());
