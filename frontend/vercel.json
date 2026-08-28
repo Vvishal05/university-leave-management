@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://university-leave-management-api.onrender.com/api/:path*"
+    }
+  ]
+}
